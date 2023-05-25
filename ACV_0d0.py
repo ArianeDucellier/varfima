@@ -6,7 +6,7 @@ import torch
 def compute_next(omega_old, d, h):
     """
     Compute the autocovariance matrix at lag h
-    from the autocovariance matrix at lag h-1
+    from the autocovariance matrix at lag h - 1
     Input:
       omega_old = 2D array, autocovariance matrix at lag h - 1
       d = 1D array, orders of the fractionally integrated process

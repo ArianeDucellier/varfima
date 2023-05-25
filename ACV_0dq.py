@@ -22,11 +22,11 @@ def compute_gamma_function(d, h, q):
         'The dimension of the orders of the fractionally integrated process should be 1'
     assert isinstance(h, int), \
         'The lag of the autocovariance should be an integer'
-    assert h >= 1, \
-        'The lag should be higher or equal to 1'
+    assert h >= 0, \
+        'The lag should be higher or equal to 0'
     assert isinstance(q, int), \
         'The order of the MA part of the fractionally integrated process should be an integer'
-    assert h >= 1, \
+    assert q >= 1, \
         'The order of the MA part of the fractionally integrated process should be higher or equal to 1'
 
     r = d.size()[0]
@@ -57,6 +57,12 @@ def compute_autocovariance(sigma, theta, d, h):
         'The dimension of the covariance of the white noise process should be 2'
     assert sigma.size()[0] == sigma.size()[1], \
         'The covariance of the white noise process should be a square matrix'
+    assert isinstance(theta, torch.Tensor), \
+        'The coefficients of the MA process should be a torch tensor'
+    assert len(theta.size()) == 3, \
+        'The dimension of the coefficients of the MA process should be 3'
+    assert theta.size()[0] == sigma.size()[1], \
+        'The coefficients of the MA process for orders 1, 2, ... should be a square matrix'
     assert isinstance(d, torch.Tensor), \
         'The orders of the fractionally integrated process should be a torch tensor'
     assert len(d.size()) == 1, \
@@ -64,14 +70,17 @@ def compute_autocovariance(sigma, theta, d, h):
     assert sigma.size()[0] == d.size()[0], \
         'The length of the orders of the fractionally integrated process should be ' + \
         'equal to the dimension of the covariance of the white noise process'
+    assert theta.size()[0] == d.size()[0], \
+        'The length of the orders of the fractionally integrated process should be ' + \
+        'equal to the dimension of the coefficients of the MA process'
     assert isinstance(h, int), \
         'The maximum lag of the autocovariance should be an integer'
     assert h >= 1, \
         'The maximum lag should be higher or equal to 1'
 
     r = d.size()[0]
-    q = theta.size()[2]
-    omega = np.zeros((r, r, h + 1))
+    q = theta.size()[2] - 1
+    omega = torch.zeros(r, r, h + 1)
     
     omega_star = ACV_0d0.compute_autocovariance(torch.eye(r), d, h)
 
@@ -87,10 +96,12 @@ def compute_autocovariance(sigma, theta, d, h):
         for f in range(1, q + 1):
             for g in range(1, q + 1):
                 f1 = f1 + torch.matmul(torch.matmul(theta[:, :, f], sigma), \
-                                    torch.transpose(theta[:, :, g])) * gamma_f[:, :, q + g - f]
-            f2 = f2 + torch.matmul(theta[:, :, f], torch.transpose(sigma)) * gamma_f[q - f]
-            f3 = f3 + torch.matmul(sigma, torch.transpose(theta[:, :, f])) * gamma_f[q + f]
-    
-        omega[:, :, k] = omega_star * (f0 + f1 + f2 + f3)
+                    torch.transpose(theta[:, :, g], 0, 1)) * gamma_f[:, :, q + g - f]
+            f2 = f2 + torch.matmul(theta[:, :, f], torch.transpose(sigma, 0, 1)) * \
+                gamma_f[:, :, q - f]
+            f3 = f3 + torch.matmul(sigma, torch.transpose(theta[:, :, f], 0, 1)) * \
+                gamma_f[:, :, q + f]
+
+        omega[:, :, k] = omega_star[:, :, k] * (f0 + f1 + f2 + f3)
 
     return omega
